@@ -4,18 +4,21 @@ export class EnemyManager {
     constructor(canvas) {
         this.canvas = canvas;
         this.enemies = [];
-        this.waveNumber = 0;
-        this.timeSinceLastSpawn = 0;
-        this.spawnCooldown = 1;
-        this.reset();
+        this.spawnTimer = 0;
+        this.spawnInterval = 2;
+        this.wave = 1;
+        this.waveTimer = 0;
+        this.waveDuration = 30;
+        this.formations = ['line', 'v', 'arc'];
+        this.currentFormation = 0;
     }
 
     reset() {
         this.enemies = [];
-        this.waveNumber = 0;
-        this.timeSinceLastSpawn = 0;
-        this.spawnCooldown = 1;
-        this.spawnNextWave();
+        this.spawnTimer = 0;
+        this.wave = 1;
+        this.waveTimer = 0;
+        this.currentFormation = 0;
     }
 
     update(deltaTime) {
@@ -27,102 +30,100 @@ export class EnemyManager {
             }
         }
 
-        // Spawn new enemies
-        this.timeSinceLastSpawn += deltaTime;
-        if (this.timeSinceLastSpawn >= this.spawnCooldown && this.enemies.length < 10) {
-            this.spawnEnemy();
-            this.timeSinceLastSpawn = 0;
-        }
-
-        // Check if wave is complete
-        if (this.enemies.length === 0) {
-            this.spawnNextWave();
-        }
-    }
-
-    spawnEnemy() {
-        const x = Math.random() * (this.canvas.width - 60) + 30;
-        const y = -30;
-        
-        let type = 'basic';
-        const roll = Math.random();
-        
-        if (this.waveNumber >= 5) {
-            if (roll < 0.1) {
-                type = 'boss';
-            } else if (roll < 0.3) {
-                type = 'armored';
-            }
-        } else if (this.waveNumber >= 3) {
-            if (roll < 0.2) {
-                type = 'armored';
+        // Update wave timer
+        this.waveTimer += deltaTime;
+        if (this.waveTimer >= this.waveDuration) {
+            this.wave++;
+            this.waveTimer = 0;
+            this.currentFormation = (this.currentFormation + 1) % this.formations.length;
+            
+            // Spawn boss every 5 waves
+            if (this.wave % 5 === 0) {
+                this.spawnBoss();
             }
         }
 
-        this.enemies.push(new Enemy(x, y, type));
-    }
-
-    spawnNextWave() {
-        this.waveNumber++;
-        
-        // Adjust difficulty based on wave number
-        this.spawnCooldown = Math.max(0.5, 1 - this.waveNumber * 0.05);
-        
-        // Create initial wave enemies
-        const numEnemies = Math.min(5 + this.waveNumber, 15);
-        
-        // Formation patterns
-        switch (this.waveNumber % 3) {
-            case 0: // V formation
-                this.spawnVFormation(numEnemies);
-                break;
-            case 1: // Line formation
-                this.spawnLineFormation(numEnemies);
-                break;
-            case 2: // Arc formation
-                this.spawnArcFormation(numEnemies);
-                break;
-        }
-    }
-
-    spawnVFormation(numEnemies) {
-        const spacing = 50;
-        const centerX = this.canvas.width / 2;
-        const startY = -50;
-
-        for (let i = 0; i < numEnemies; i++) {
-            const row = Math.floor(i / 2);
-            const isLeft = i % 2 === 0;
-            const x = centerX + (isLeft ? -1 : 1) * spacing * (row + 1);
-            const y = startY - row * spacing;
-            this.enemies.push(new Enemy(x, y));
-        }
-    }
-
-    spawnLineFormation(numEnemies) {
-        const spacing = this.canvas.width / (numEnemies + 1);
-        const y = -50;
-
-        for (let i = 0; i < numEnemies; i++) {
-            const x = spacing * (i + 1);
-            this.enemies.push(new Enemy(x, y));
-        }
-    }
-
-    spawnArcFormation(numEnemies) {
-        const centerX = this.canvas.width / 2;
-        const radius = 150;
-        const startY = -50;
-
-        for (let i = 0; i < numEnemies; i++) {
-            const angle = (Math.PI / (numEnemies - 1)) * i;
-            const x = centerX + Math.cos(angle) * radius;
-            const y = startY + Math.sin(angle) * radius;
-            this.enemies.push(new Enemy(x, y));
+        // Update spawn timer
+        this.spawnTimer += deltaTime;
+        if (this.spawnTimer >= this.getSpawnInterval()) {
+            this.spawnEnemies();
+            this.spawnTimer = 0;
         }
     }
 
     render(ctx) {
         this.enemies.forEach(enemy => enemy.render(ctx));
+    }
+
+    spawnEnemies() {
+        const formation = this.formations[this.currentFormation];
+        const enemyType = Math.random() < 0.2 ? 'armored' : 'basic';
+        
+        switch (formation) {
+            case 'line':
+                this.spawnLineFormation(enemyType);
+                break;
+            case 'v':
+                this.spawnVFormation(enemyType);
+                break;
+            case 'arc':
+                this.spawnArcFormation(enemyType);
+                break;
+        }
+    }
+
+    spawnLineFormation(type) {
+        const count = 3 + Math.floor(this.wave / 3);
+        const spacing = 60;
+        const totalWidth = (count - 1) * spacing;
+        const startX = (this.canvas.width - totalWidth) / 2;
+
+        for (let i = 0; i < count; i++) {
+            const x = startX + i * spacing;
+            this.enemies.push(new Enemy(x, -20, type));
+        }
+    }
+
+    spawnVFormation(type) {
+        const count = 5;
+        const spacing = 50;
+        const rows = 3;
+
+        for (let row = 0; row < rows; row++) {
+            const rowCount = row * 2 + 1;
+            const totalWidth = (rowCount - 1) * spacing;
+            const startX = (this.canvas.width - totalWidth) / 2;
+
+            for (let i = 0; i < rowCount; i++) {
+                const x = startX + i * spacing;
+                const y = -20 - row * 40;
+                this.enemies.push(new Enemy(x, y, type));
+            }
+        }
+    }
+
+    spawnArcFormation(type) {
+        const count = 7;
+        const radius = 100;
+        const centerX = this.canvas.width / 2;
+        const startY = -20;
+
+        for (let i = 0; i < count; i++) {
+            const angle = (Math.PI / (count - 1)) * i;
+            const x = centerX + Math.cos(angle) * radius;
+            const y = startY + Math.sin(angle) * radius;
+            this.enemies.push(new Enemy(x, y, type));
+        }
+    }
+
+    spawnBoss() {
+        const x = this.canvas.width / 2;
+        const y = -50;
+        this.enemies.push(new Enemy(x, y, 'boss'));
+    }
+
+    getSpawnInterval() {
+        // Decrease spawn interval as waves progress
+        return Math.max(0.5, this.spawnInterval - (this.wave - 1) * 0.1);
     }
 }
