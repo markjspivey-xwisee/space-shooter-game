@@ -1,24 +1,24 @@
-import { Bullet } from './bullet.js';
-
 export class Player {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width = 40;
-        this.height = 40;
+        this.width = 30;
+        this.height = 30;
+        this.velocity = { x: 0, y: 0 };
         this.speed = 300;
         this.bullets = [];
         this.lives = 3;
         this.isInvulnerable = false;
-        this.invulnerabilityTime = 2;
+        this.invulnerabilityDuration = 2;
         this.invulnerabilityTimer = 0;
+        
+        // Power-up states
+        this.hasTripleShot = false;
+        this.hasRapidFire = false;
+        this.powerUpDuration = 5;
+        this.powerUpTimer = 0;
         this.shootCooldown = 0.25;
         this.shootTimer = 0;
-        this.moveLeft = false;
-        this.moveRight = false;
-        this.isShooting = false;
-        this.powerUpTime = 0;
-        this.hasPowerUp = false;
     }
 
     reset() {
@@ -26,62 +26,19 @@ export class Player {
         this.bullets = [];
         this.isInvulnerable = false;
         this.invulnerabilityTimer = 0;
+        this.hasTripleShot = false;
+        this.hasRapidFire = false;
+        this.powerUpTimer = 0;
         this.shootTimer = 0;
-        this.powerUpTime = 0;
-        this.hasPowerUp = false;
-    }
-
-    handleKeyDown(key) {
-        switch (key) {
-            case 'ArrowLeft':
-            case 'a':
-                this.moveLeft = true;
-                break;
-            case 'ArrowRight':
-            case 'd':
-                this.moveRight = true;
-                break;
-            case ' ':
-                this.isShooting = true;
-                break;
-        }
-    }
-
-    handleKeyUp(key) {
-        switch (key) {
-            case 'ArrowLeft':
-            case 'a':
-                this.moveLeft = false;
-                break;
-            case 'ArrowRight':
-            case 'd':
-                this.moveRight = false;
-                break;
-            case ' ':
-                this.isShooting = false;
-                break;
-        }
     }
 
     update(deltaTime) {
-        // Movement
-        if (this.moveLeft) {
-            this.x -= this.speed * deltaTime;
-        }
-        if (this.moveRight) {
-            this.x += this.speed * deltaTime;
-        }
-
+        // Update position
+        this.x += this.velocity.x * deltaTime;
+        
         // Keep player within screen bounds
         this.x = Math.max(this.width / 2, Math.min(800 - this.width / 2, this.x));
-
-        // Shooting
-        this.shootTimer -= deltaTime;
-        if (this.isShooting && this.shootTimer <= 0) {
-            this.shoot();
-            this.shootTimer = this.shootCooldown;
-        }
-
+        
         // Update bullets
         for (let i = this.bullets.length - 1; i >= 0; i--) {
             this.bullets[i].update(deltaTime);
@@ -89,36 +46,94 @@ export class Player {
                 this.bullets.splice(i, 1);
             }
         }
-
+        
         // Update invulnerability
         if (this.isInvulnerable) {
-            this.invulnerabilityTimer -= deltaTime;
-            if (this.invulnerabilityTimer <= 0) {
+            this.invulnerabilityTimer += deltaTime;
+            if (this.invulnerabilityTimer >= this.invulnerabilityDuration) {
                 this.isInvulnerable = false;
+                this.invulnerabilityTimer = 0;
             }
         }
-
-        // Update power-up
-        if (this.hasPowerUp) {
-            this.powerUpTime -= deltaTime;
-            if (this.powerUpTime <= 0) {
-                this.hasPowerUp = false;
+        
+        // Update power-ups
+        if (this.hasTripleShot || this.hasRapidFire) {
+            this.powerUpTimer += deltaTime;
+            if (this.powerUpTimer >= this.powerUpDuration) {
+                this.hasTripleShot = false;
+                this.hasRapidFire = false;
+                this.powerUpTimer = 0;
                 this.shootCooldown = 0.25;
             }
         }
+        
+        // Update shoot timer
+        if (this.shootTimer > 0) {
+            this.shootTimer -= deltaTime;
+        }
+    }
+
+    render(ctx) {
+        ctx.save();
+        
+        // Draw player ship
+        ctx.translate(this.x, this.y);
+        ctx.beginPath();
+        ctx.moveTo(0, -this.height / 2);
+        ctx.lineTo(this.width / 2, this.height / 2);
+        ctx.lineTo(-this.width / 2, this.height / 2);
+        ctx.closePath();
+        
+        // Flash when invulnerable
+        if (this.isInvulnerable && Math.floor(this.invulnerabilityTimer * 10) % 2) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        } else {
+            ctx.fillStyle = '#fff';
+        }
+        
+        ctx.fill();
+        
+        // Add glow effect for power-ups
+        if (this.hasTripleShot || this.hasRapidFire) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = this.hasTripleShot ? '#00ff00' : '#ffff00';
+            ctx.fill();
+        }
+        
+        ctx.restore();
+        
+        // Render bullets
+        this.bullets.forEach(bullet => bullet.render(ctx));
+    }
+
+    moveLeft() {
+        this.velocity.x = -this.speed;
+    }
+
+    moveRight() {
+        this.velocity.x = this.speed;
+    }
+
+    stopMoving() {
+        this.velocity.x = 0;
     }
 
     shoot() {
-        if (this.hasPowerUp) {
-            // Triple shot
-            this.bullets.push(
-                new Bullet(this.x, this.y, -Math.PI / 6),  // Left bullet
-                new Bullet(this.x, this.y, 0),             // Center bullet
-                new Bullet(this.x, this.y, Math.PI / 6)    // Right bullet
-            );
-        } else {
-            // Single shot
-            this.bullets.push(new Bullet(this.x, this.y, 0));
+        if (this.shootTimer <= 0) {
+            if (this.hasTripleShot) {
+                // Create three bullets in a spread pattern
+                this.bullets.push(
+                    new Bullet(this.x, this.y, -0.2),
+                    new Bullet(this.x, this.y, 0),
+                    new Bullet(this.x, this.y, 0.2)
+                );
+            } else {
+                // Create a single bullet
+                this.bullets.push(new Bullet(this.x, this.y, 0));
+            }
+            
+            // Reset shoot timer based on rapid fire status
+            this.shootTimer = this.hasRapidFire ? this.shootCooldown / 2 : this.shootCooldown;
         }
     }
 
@@ -126,43 +141,65 @@ export class Player {
         if (!this.isInvulnerable) {
             this.lives--;
             this.isInvulnerable = true;
-            this.invulnerabilityTimer = this.invulnerabilityTime;
+            this.invulnerabilityTimer = 0;
         }
     }
 
-    activatePowerUp() {
-        this.hasPowerUp = true;
-        this.powerUpTime = 10; // Power-up lasts 10 seconds
-        this.shootCooldown = 0.15; // Faster shooting with power-up
+    activatePowerUp(type) {
+        if (type === 'tripleShot') {
+            this.hasTripleShot = true;
+            this.hasRapidFire = false;
+        } else if (type === 'rapidFire') {
+            this.hasRapidFire = true;
+            this.hasTripleShot = false;
+        }
+        this.powerUpTimer = 0;
+    }
+}
+
+class Bullet {
+    constructor(x, y, angle = 0) {
+        this.x = x;
+        this.y = y;
+        this.width = 4;
+        this.height = 10;
+        this.speed = 500;
+        this.angle = angle;
+        this.damage = 1;
+    }
+
+    update(deltaTime) {
+        this.x += Math.sin(this.angle) * this.speed * deltaTime;
+        this.y -= Math.cos(this.angle) * this.speed * deltaTime;
     }
 
     render(ctx) {
-        // Don't render if invulnerable and blinking
-        if (this.isInvulnerable && Math.floor(this.invulnerabilityTimer * 10) % 2) {
-            return;
-        }
-
-        // Draw player ship
         ctx.save();
         ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
         
-        // Ship body
-        ctx.fillStyle = this.hasPowerUp ? '#0f0' : '#fff';
-        ctx.beginPath();
-        ctx.moveTo(0, -this.height / 2);
-        ctx.lineTo(-this.width / 2, this.height / 2);
-        ctx.lineTo(this.width / 2, this.height / 2);
-        ctx.closePath();
-        ctx.fill();
-
-        // Ship details
-        ctx.strokeStyle = '#666';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-
+        // Draw bullet
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        
+        // Add glow effect
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = '#fff';
+        ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+        
         ctx.restore();
+    }
 
-        // Render bullets
-        this.bullets.forEach(bullet => bullet.render(ctx));
+    getBounds() {
+        return {
+            left: this.x - this.width / 2,
+            right: this.x + this.width / 2,
+            top: this.y - this.height / 2,
+            bottom: this.y + this.height / 2
+        };
+    }
+
+    isOffscreen() {
+        return this.y < -this.height;
     }
 }
