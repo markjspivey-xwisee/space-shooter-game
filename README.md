@@ -2,7 +2,7 @@
 
 A browser-based space shooter game built with HTML5 Canvas and JavaScript. Features include player ship controls, enemy waves, power-ups, and high scores.
 
-![Space Shooter Game Screenshot](screenshot.png)
+Play the game: [https://markjspivey-xwisee.github.io/space-shooter-game/](https://markjspivey-xwisee.github.io/space-shooter-game/)
 
 ## Features
 
@@ -107,6 +107,6 @@ This project is open source and available under the MIT License.
 
 ## Credits
 
-- Game design and development: [Your Name]
+- Game design and development: Mark Spivey
 - Sound effects: (To be added)
 - Background music: (To be added)
