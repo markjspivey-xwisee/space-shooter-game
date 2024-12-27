@@ -1,0 +1,1 @@
+// Entity base class implementation
