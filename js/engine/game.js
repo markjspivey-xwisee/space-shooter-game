@@ -1,120 +1,152 @@
 import { Player } from '../entities/player.js';
 import { EnemyManager } from '../managers/enemyManager.js';
-import { CollisionManager } from '../managers/collisionManager.js';
 import { PowerUpManager } from '../managers/powerUpManager.js';
+import { CollisionManager } from '../managers/collisionManager.js';
 import { ScoreManager } from '../managers/scoreManager.js';
 
-class Game {
+export class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
-        this.setupCanvas();
         
-        this.player = new Player(
-            this.canvas.width / 2,
-            this.canvas.height - 50
-        );
-        
-        this.enemyManager = new EnemyManager(this.canvas);
-        this.collisionManager = new CollisionManager();
-        this.powerUpManager = new PowerUpManager(this.canvas);
-        this.scoreManager = new ScoreManager();
-        
-        this.isRunning = false;
-        this.lastTime = 0;
-        this.menu = document.getElementById('menu');
-        this.setupEventListeners();
-    }
-
-    setupCanvas() {
-        // Set canvas size to match CSS dimensions
+        // Set canvas size
         this.canvas.width = 800;
         this.canvas.height = 600;
+        
+        // Initialize game objects
+        this.player = new Player(this.canvas.width / 2, this.canvas.height - 50);
+        this.enemyManager = new EnemyManager(this.canvas);
+        this.powerUpManager = new PowerUpManager(this.canvas);
+        this.collisionManager = new CollisionManager();
+        this.scoreManager = new ScoreManager();
+        
+        // Game state
+        this.isGameOver = false;
+        this.isPaused = false;
+        this.lastTime = 0;
+        
+        // Initialize high scores display
+        ScoreManager.addStyles();
+        
+        // Bind event handlers
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleKeyUp = this.handleKeyUp.bind(this);
+        
+        // Add event listeners
+        document.addEventListener('keydown', this.handleKeyDown);
+        document.addEventListener('keyup', this.handleKeyUp);
+        
+        // Start button click handler
+        const startButton = document.getElementById('startButton');
+        if (startButton) {
+            startButton.addEventListener('click', () => {
+                this.startGame();
+            });
+        }
     }
-
-    setupEventListeners() {
-        document.getElementById('startButton').addEventListener('click', () => {
-            this.startGame();
-        });
-
-        // Handle keyboard input
-        document.addEventListener('keydown', (e) => {
-            if (this.isRunning) {
-                this.player.handleKeyDown(e.key);
-            }
-        });
-
-        document.addEventListener('keyup', (e) => {
-            if (this.isRunning) {
-                this.player.handleKeyUp(e.key);
-            }
-        });
-    }
-
+    
     startGame() {
-        this.isRunning = true;
-        this.menu.style.display = 'none';
+        // Hide menu
+        const menu = document.getElementById('menu');
+        if (menu) {
+            menu.style.display = 'none';
+        }
+        
+        // Reset game state
+        this.isGameOver = false;
+        this.isPaused = false;
         this.player.reset();
         this.enemyManager.reset();
         this.powerUpManager.reset();
         this.scoreManager.reset();
-        this.gameLoop(0);
+        
+        // Start game loop
+        requestAnimationFrame(this.gameLoop.bind(this));
     }
-
+    
     gameLoop(currentTime) {
-        if (!this.isRunning) return;
-
+        // Calculate delta time
         const deltaTime = (currentTime - this.lastTime) / 1000;
         this.lastTime = currentTime;
-
-        this.update(deltaTime);
-        this.render();
-
-        requestAnimationFrame((time) => this.gameLoop(time));
+        
+        if (!this.isPaused && !this.isGameOver) {
+            this.update(deltaTime);
+            this.render();
+        }
+        
+        if (!this.isGameOver) {
+            requestAnimationFrame(this.gameLoop.bind(this));
+        } else {
+            this.handleGameOver();
+        }
     }
-
+    
     update(deltaTime) {
+        // Update game objects
         this.player.update(deltaTime);
         this.enemyManager.update(deltaTime);
         this.powerUpManager.update(deltaTime);
-
+        this.collisionManager.update(deltaTime);
+        
         // Check collisions
         this.collisionManager.checkCollisions(
             this.player,
             this.enemyManager.enemies,
-            this.powerUpManager.powerUps,
+            this.powerUpManager,
             this.scoreManager
         );
-
+        
         // Check game over condition
         if (this.player.lives <= 0) {
-            this.gameOver();
+            this.isGameOver = true;
         }
     }
-
+    
     render() {
         // Clear canvas
-        this.ctx.fillStyle = '#111';
+        this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
+        
         // Render game objects
         this.player.render(this.ctx);
         this.enemyManager.render(this.ctx);
         this.powerUpManager.render(this.ctx);
-
-        // Update HUD
-        document.getElementById('score').textContent = this.scoreManager.score;
-        document.getElementById('lives').textContent = this.player.lives;
+        this.collisionManager.render(this.ctx);
     }
-
-    gameOver() {
-        this.isRunning = false;
+    
+    handleGameOver() {
+        // Show menu
+        const menu = document.getElementById('menu');
+        if (menu) {
+            menu.style.display = 'block';
+        }
+        
+        // Submit score
         this.scoreManager.submitScore();
-        this.menu.style.display = 'block';
+    }
+    
+    handleKeyDown(event) {
+        if (event.key === 'ArrowLeft' || event.key === 'a') {
+            this.player.moveLeft();
+        } else if (event.key === 'ArrowRight' || event.key === 'd') {
+            this.player.moveRight();
+        } else if (event.key === ' ') {
+            this.player.shoot();
+        } else if (event.key === 'p') {
+            this.isPaused = !this.isPaused;
+        }
+    }
+    
+    handleKeyUp(event) {
+        if ((event.key === 'ArrowLeft' || event.key === 'a') && this.player.velocity.x < 0) {
+            this.player.stopMoving();
+        } else if ((event.key === 'ArrowRight' || event.key === 'd') && this.player.velocity.x > 0) {
+            this.player.stopMoving();
+        }
     }
 }
 
-// Start the game when the page loads
+// Initialize game when window loads
 window.addEventListener('load', () => {
     new Game();
 });

@@ -3,10 +3,10 @@ export class CollisionManager {
         this.explosions = [];
     }
 
-    checkCollisions(player, enemies, powerUps, scoreManager) {
+    checkCollisions(player, enemies, powerUpManager, scoreManager) {
         this.checkPlayerEnemyCollisions(player, enemies);
         this.checkBulletEnemyCollisions(player, enemies, scoreManager);
-        this.checkPlayerPowerUpCollisions(player, powerUps);
+        this.checkPlayerPowerUpCollisions(player, powerUpManager);
     }
 
     checkPlayerEnemyCollisions(player, enemies) {
@@ -60,7 +60,7 @@ export class CollisionManager {
         }
     }
 
-    checkPlayerPowerUpCollisions(player, powerUps) {
+    checkPlayerPowerUpCollisions(player, powerUpManager) {
         const playerBounds = {
             left: player.x - player.width / 2,
             right: player.x + player.width / 2,
@@ -68,11 +68,14 @@ export class CollisionManager {
             bottom: player.y + player.height / 2
         };
 
-        const powerUp = powerUps.checkCollision(playerBounds);
-        if (powerUp) {
-            player.activatePowerUp();
-            powerUps.removePowerUp(powerUp);
-            this.addPowerUpEffect(player.x, player.y);
+        for (const powerUp of powerUpManager.powerUps) {
+            const powerUpBounds = powerUp.getBounds();
+            if (this.isColliding(playerBounds, powerUpBounds)) {
+                player.activatePowerUp();
+                powerUpManager.removePowerUp(powerUp);
+                this.addPowerUpEffect(player.x, player.y);
+                break;
+            }
         }
     }
 
