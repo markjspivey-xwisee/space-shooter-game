@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Shooter Game</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="hud">
+            <div class="score">Score: <span id="score">0</span></div>
+            <div class="lives">Lives: <span id="lives">3</span></div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
+        <div class="menu" id="menu">
+            <h1>Space Shooter</h1>
+            <button id="startButton">Start Game</button>
+            <div class="high-scores">
+                <h2>High Scores</h2>
+                <ul id="highScoresList"></ul>
+            </div>
+        </div>
+    </div>
+    <script src="js/engine/game.js" type="module"></script>
+</body>
+</html>
